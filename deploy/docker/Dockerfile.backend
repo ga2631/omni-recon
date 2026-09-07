@@ -1,0 +1,53 @@
+# ==============================================================================
+# Multi-stage Dockerfile for OmniRecon Backend (Rust Axum & DuckDB)
+# ==============================================================================
+
+# Stage 1: Build Stage (Latest Stable Rust on Debian 12 Bookworm LTS)
+FROM rust:bookworm AS builder
+
+WORKDIR /usr/src/omni-recon
+
+# Install required build tools & C++ compiler for DuckDB native bindings
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    clang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Rust workspace definition and dependencies
+COPY backend/Cargo.toml ./Cargo.toml
+COPY backend/common/Cargo.toml ./common/Cargo.toml
+COPY backend/engine/Cargo.toml ./engine/Cargo.toml
+COPY backend/server/Cargo.toml ./server/Cargo.toml
+COPY backend/worker/Cargo.toml ./worker/Cargo.toml
+
+# Copy full source tree
+COPY backend/common ./common
+COPY backend/engine ./engine
+COPY backend/server ./server
+COPY backend/worker ./worker
+
+# Build release binaries
+RUN cargo build --release --bin omni-server --bin omni-worker
+
+# Stage 2: Runtime Stage
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy binaries from builder stage
+COPY --from=builder /usr/src/omni-recon/target/release/omni-server /usr/local/bin/omni-server
+COPY --from=builder /usr/src/omni-recon/target/release/omni-worker /usr/local/bin/omni-worker
+
+# Create data directory for DuckDB and Parquet files
+RUN mkdir -p /app/data/storage
+
+EXPOSE 8080
+
+CMD ["omni-server"]

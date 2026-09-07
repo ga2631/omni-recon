@@ -1,0 +1,39 @@
+OmniRecon - Multi-channel E-Commerce Reconciliation & Cashflow Alert Platform
+Copyright (c) 2026 OmniRecon Contributors
+
+This product is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+A copy of the license is included in the LICENSE file.
+
+========================================================================
+ATTRIBUTION & NOTICE REQUIREMENTS
+========================================================================
+
+In accordance with Section 7(b) of the GNU Affero General Public License v3.0:
+
+1. Attribution Preservation:
+   Any redistribution, public deployment, cloud hosting, SaaS offering,
+   or modified version of this software must preserve this NOTICE file,
+   all copyright headers, and provide prominent visible attribution to
+   the original OmniRecon project.
+
+2. User Interface Notice:
+   Interactive user interfaces (Web UI, Mobile UI, CLI, or API meta endpoints)
+   built with or derived from this software must display a visible link to the
+   original OmniRecon repository (e.g., "Powered by OmniRecon" in the footer
+   or About section).
+
+3. Source Code Availability:
+   Under AGPL-3.0 Section 13, any party running a modified version of this
+   software over a computer network (Internet or Intranet) must make the
+   Corresponding Source code of their modified version publicly and freely
+   accessible to all users interacting with the network service.
+
+========================================================================
+Third-Party Dependencies & Acknowledgments
+========================================================================
+- DuckDB (MIT License) - High-performance analytical database engine
+- Axum / Tokio (MIT License) - High-performance asynchronous web framework
+- Vue.js (MIT License) - Progressive JavaScript framework
+- Tailwind CSS (MIT License) - Utility-first CSS framework
+- Pinia (MIT License) - Intuitive state management for Vue
+- PostgreSQL & Redis (PostgreSQL License / BSD-3-Clause)

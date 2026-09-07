@@ -1,0 +1,50 @@
+name: OmniRecon CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-test:
+    name: Backend Rust Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install DuckDB Build Dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake clang libssl-dev
+
+      - name: Rustfmt Check
+        run: cd backend && cargo fmt --all -- --check
+
+      - name: Clippy Lint
+        run: cd backend && cargo clippy -- -D warnings
+
+      - name: Run Tests
+        run: cd backend && cargo test
+
+  frontend-test:
+    name: Frontend Vue 3 Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package.json
+
+      - name: Install Dependencies
+        run: cd frontend && npm ci
+
+      - name: Build Frontend
+        run: cd frontend && npm run build
