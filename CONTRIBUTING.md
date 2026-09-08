@@ -41,13 +41,15 @@ Chúng tôi sử dụng chuẩn [Conventional Commits](https://www.conventionalc
    git commit -m "feat(module): description of changes"
    ```
 4. Đảm bảo toàn bộ test và linter vượt qua:
+
    ```bash
    # Kiểm tra Rust Backend
    cd backend && cargo check && cargo test
-   
+
    # Kiểm tra Vue Frontend
    cd ../frontend && npm run build
    ```
+
 5. Push nhánh lên GitHub và tạo **Pull Request** (PR) vào nhánh `main` của repo gốc.
 6. Mô tả rõ ràng mục tiêu của PR, các thay đổi chính và ảnh chụp màn hình kiểm thử (nếu liên quan đến giao diện người dùng).
 
@@ -56,6 +58,7 @@ Chúng tôi sử dụng chuẩn [Conventional Commits](https://www.conventionalc
 ## 4. Báo cáo Lỗi & Đề xuất Tính năng
 
 Nếu bạn phát hiện lỗi (bug) hoặc có ý tưởng cải tiến:
+
 - Mở một **Issue** trên GitHub.
 - Mô tả chi tiết các bước tái hiện lỗi kèm log và ảnh chụp màn hình (nếu có).
 - Đối với lỗ hổng bảo mật, vui lòng làm theo hướng dẫn trong [SECURITY.md](SECURITY.md).
