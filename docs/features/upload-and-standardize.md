@@ -7,13 +7,12 @@ This document provides complete technical specifications for the **Upload & Stan
 ## 1. End-to-End System Flow
 
 ```
-[ Vue 3 Client / Dashboard ]
+[ Vue 3 Client (UploadStatementView.vue + Pinia Store) ]
           │
           │ 1. Multipart POST (/api/v1/statements/upload)
-          │    - Headers: Authorization JWT
-          │    - Form: shop_id, platform (SHOPEE|TIKTOK), report_type, file (.xlsx/.csv)
+          │    - Payload: shop_id, platform (SHOPEE|TIKTOK), report_type, file (.xlsx/.csv)
           ▼
-[ Rust Axum Backend Server ]
+[ Rust Axum Backend Server (statements.rs) ]
           │
           │ 2. Stream Buffer & SHA-256 Checksum Calculation
           │    - Magic byte validation (XLSX Zip / UTF-8 CSV)
@@ -23,7 +22,7 @@ This document provides complete technical specifications for the **Upload & Stan
           │    - Written to storage/bronze/{merchant_id}/{shop_id}/{YYYY}/{MM}/{log_id}_{hash}.{ext}
           │    - Immutable, append-only raw auditing tier
           ▼
-[ DuckDB + Calamine Analytical ETL Engine ]
+[ DuckDB + Calamine Analytical ETL Engine (shopee.rs / tiktok.rs / duckdb_runner.rs) ]
           │
           │ 4. Vectorized Parsing & Header Normalization
           │    - Shopee / TikTok column heuristic detection
@@ -42,10 +41,13 @@ This document provides complete technical specifications for the **Upload & Stan
           │    - `unified_orders`: Conformed order master records
           │    - `unified_transactions`: Financial breakdown with JSONB fee payload
           ▼
-[ Vue 3 Client (Reactive UI Update) ]
+[ Vue 3 Client UI (Real-time Reactive Updates) ]
           │
-          │ 7. Instant JSON Response & WebSocket Notification
-          │    - Displays progress bar, summary sanity counters, sample 5 records
+          │ 7. Instant JSON Response & Render
+          │    - Progress bar & Medallion tier badges (Bronze -> DuckDB -> Silver)
+          │    - Sanity check counters (Gross, Net, Total Fees, Balanced rows)
+          │    - 5-row Silver Preview Table with formatted VND currencies
+          │    - Updated recent batch log history list
 ```
 
 ---
@@ -92,6 +94,8 @@ The following tables and indexes were introduced in `deploy/sql/01_init_schema.s
    - Handles Vietnamese number conventions (dot as thousand separator, comma as decimal), accounting bracket notations `(15.000)`, and diverse date formats (`%d-%m-%Y %H:%M`, `%Y-%m-%d %H:%M:%S`).
 5. **Idempotency Guarantee**:
    - Composite unique constraint `(shop_id, file_hash)` in `upload_logs` prevents accidental duplicate batch processing.
+6. **Reactive Frontend State Management**:
+   - Pinia `useStatementsStore` provides optimistic updates, live progress reporting, formatted Vietnamese currency rendering (`Intl.NumberFormat`), and error boundary handling.
 
 ---
 
@@ -99,6 +103,9 @@ The following tables and indexes were introduced in `deploy/sql/01_init_schema.s
 
 | File Path | Responsibility |
 | :--- | :--- |
+| `frontend/src/views/UploadStatementView.vue` | Interactive Vue 3 upload view with drag-and-drop, live progress, sanity cards, preview table, and recent batch logs. |
+| `frontend/src/stores/statements.ts` | Pinia store managing statement upload lifecycle, channel bindings, batch history, and currency formatters. |
+| `frontend/src/types/index.ts` | TypeScript definitions for `UploadStatementResult`, `FinancialSanitySummary`, `StandardSettlementRecord`, and `StatementBatchItem`. |
 | `deploy/sql/01_init_schema.sql` | PostgreSQL 16 DDL for Bronze metadata (`upload_logs`) and Silver conformed schema (`unified_orders`, `unified_transactions`). |
 | `deploy/sql/02_seed_data.sql` | Seed data for default merchant, demo shops, and initial alert rules. |
 | `backend/common/src/models.rs` | Strongly-typed Rust structs and domain models for `Merchant`, `Shop`, `UploadLog`, `UnifiedOrder`, `UnifiedTransaction`. |

@@ -1,0 +1,172 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { StatementBatchItem, ChannelItem, UploadStatementResult } from '../types'
+
+export const useStatementsStore = defineStore('statements', () => {
+  const batches = ref<StatementBatchItem[]>([
+    {
+      id: '00000000-0000-0000-0000-000000000099',
+      filename: 'Shopee_Income_Statement_August_2026.xlsx',
+      channel_code: 'shopee_official',
+      platform: 'SHOPEE',
+      report_type: 'INCOME_STATEMENT',
+      total_rows: 15420,
+      status: 'COMPLETED',
+      created_at: '2026-08-31T10:00:00Z',
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000098',
+      filename: 'TikTok_Settlement_Report_August_2026.xlsx',
+      channel_code: 'tiktok_shop_main',
+      platform: 'TIKTOK',
+      report_type: 'SETTLEMENT_REPORT',
+      total_rows: 8940,
+      status: 'COMPLETED',
+      created_at: '2026-08-30T15:30:00Z',
+    },
+  ])
+
+  const channels = ref<ChannelItem[]>([
+    {
+      id: '00000000-0000-0000-0000-000000000010',
+      code: 'shopee_official',
+      name: 'Gian Hàng Shopee Mall',
+      platform_type: 'SHOPEE',
+      is_active: true,
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000011',
+      code: 'tiktok_shop_main',
+      name: 'TikTok Shop Flagship',
+      platform_type: 'TIKTOK',
+      is_active: true,
+    },
+    {
+      id: '00000000-0000-0000-0000-000000000012',
+      code: 'ghn_express',
+      name: 'Giao Hàng Nhanh (GHN)',
+      platform_type: 'GHN',
+      is_active: true,
+    },
+  ])
+
+  const isUploading = ref(false)
+  const uploadProgress = ref(0)
+  const lastUploadResult = ref<UploadStatementResult | null>(null)
+  const errorMessage = ref<string | null>(null)
+  const successMessage = ref<string | null>(null)
+
+  async function fetchBatches() {
+    try {
+      const res = await fetch('/api/v1/statements/batches')
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data) {
+          batches.value = json.data
+        }
+      }
+    } catch (e) {
+      console.warn('Using local fallback batches', e)
+    }
+  }
+
+  async function fetchChannels() {
+    try {
+      const res = await fetch('/api/v1/channels')
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data) {
+          channels.value = json.data
+        }
+      }
+    } catch (e) {
+      console.warn('Using local fallback channels', e)
+    }
+  }
+
+  async function uploadStatement(
+    file: File,
+    platform: string,
+    reportType: string = 'INCOME_STATEMENT',
+    shopId?: string,
+  ): Promise<boolean> {
+    isUploading.value = true
+    uploadProgress.value = 20
+    errorMessage.value = null
+    successMessage.value = null
+    lastUploadResult.value = null
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('platform', platform)
+      formData.append('report_type', reportType)
+      if (shopId) {
+        formData.append('shop_id', shopId)
+      }
+
+      uploadProgress.value = 60
+
+      const res = await fetch('/api/v1/statements/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      uploadProgress.value = 90
+
+      const json = await res.json()
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || 'Lỗi xử lý file tải lên')
+      }
+
+      lastUploadResult.value = json.data
+      successMessage.value = json.message || 'Tải lên & Chuẩn hóa thành công!'
+      uploadProgress.value = 100
+
+      // Add to local batches list immediately
+      batches.value.unshift({
+        id: json.data.upload_log_id,
+        filename: json.data.original_filename,
+        channel_code: platform.toLowerCase(),
+        platform,
+        report_type: reportType,
+        total_rows: json.data.total_rows,
+        status: json.data.status,
+        created_at: new Date().toISOString(),
+      })
+
+      return true
+    } catch (err: any) {
+      errorMessage.value = err.message || 'Không thể kết nối đến máy chủ API'
+      return false
+    } finally {
+      isUploading.value = false
+    }
+  }
+
+  function formatVND(val: number | string | undefined): string {
+    if (val === undefined || val === null) return '0 ₫'
+    const num = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(num)) return '0 ₫'
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      maximumFractionDigits: 0,
+    }).format(num)
+  }
+
+  return {
+    batches,
+    channels,
+    isUploading,
+    uploadProgress,
+    lastUploadResult,
+    errorMessage,
+    successMessage,
+    fetchBatches,
+    fetchChannels,
+    uploadStatement,
+    formatVND,
+  }
+})
