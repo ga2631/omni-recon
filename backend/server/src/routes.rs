@@ -8,6 +8,7 @@ use crate::handlers::{
 };
 use crate::ws::ws_handler;
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
@@ -42,5 +43,6 @@ pub fn create_router() -> Router {
         .route("/ws", get(ws_handler))
         .route("/healthz", get(|| async { "OK" }))
         .layer(cors)
+        .layer(DefaultBodyLimit::max(250 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
 }
