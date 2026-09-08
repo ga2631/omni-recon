@@ -3,7 +3,6 @@ use duckdb::Connection;
 use omni_common::{OmniError, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use serde_json::json;
 use std::path::Path;
 use tracing::info;
 

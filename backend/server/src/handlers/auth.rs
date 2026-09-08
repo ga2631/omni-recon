@@ -1,8 +1,6 @@
-use axum::{extract::State, Json};
-use omni_common::Result;
+use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
@@ -29,17 +27,18 @@ pub async fn login_handler(
 ) -> Json<serde_json::Value> {
     // In production, verify bcrypt password hash with database
     if payload.email == "admin@omnirecon.local" && payload.password == "Admin@123456" {
+        let resp = LoginResponse {
+            token: "demo-jwt-access-token-omnirecon".to_string(),
+            user: UserInfo {
+                id: "00000000-0000-0000-0000-000000000002".to_string(),
+                email: "admin@omnirecon.local".to_string(),
+                full_name: "System Administrator".to_string(),
+                role: "ADMIN".to_string(),
+            },
+        };
         Json(json!({
             "success": true,
-            "data": {
-                "token": "demo-jwt-access-token-omnirecon",
-                "user": {
-                    "id": "00000000-0000-0000-0000-000000000002",
-                    "email": "admin@omnirecon.local",
-                    "full_name": "System Administrator",
-                    "role": "ADMIN"
-                }
-            }
+            "data": resp
         }))
     } else {
         Json(json!({
