@@ -22,4 +22,10 @@ describe('Statements Store', () => {
     expect(store.isUploading).toBe(false)
     expect(store.uploadProgress).toBe(0)
   })
+
+  it('provides a downloadSampleTemplate function that handles template generation', () => {
+    const store = useStatementsStore()
+    expect(typeof store.downloadSampleTemplate).toBe('function')
+  })
 })
+

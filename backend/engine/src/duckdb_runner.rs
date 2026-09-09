@@ -144,9 +144,9 @@ impl DuckDbRunner {
                 COUNT(*) AS total_rows,
                 COALESCE(SUM(gross_amount), 0) AS total_gross,
                 COALESCE(SUM(net_settlement), 0) AS total_net,
-                COALESCE(SUM(commission_fee + service_fee + payment_fee + affiliate_commission_fee + seller_shipping_fee + other_fees), 0) AS total_fees,
-                COUNT(CASE WHEN ABS((gross_amount - seller_discount - commission_fee - service_fee - payment_fee - affiliate_commission_fee - seller_shipping_fee + shipping_subsidy - other_fees) - net_settlement) <= 100.0 THEN 1 END) AS balanced_rows,
-                COUNT(CASE WHEN ABS((gross_amount - seller_discount - commission_fee - service_fee - payment_fee - affiliate_commission_fee - seller_shipping_fee + shipping_subsidy - other_fees) - net_settlement) > 100.0 THEN 1 END) AS discrepant_rows
+                COALESCE(SUM(commission_fee + service_fee + payment_fee + affiliate_commission_fee + CASE WHEN buyer_shipping_fee > 0 THEN GREATEST(0.0, seller_shipping_fee - buyer_shipping_fee - shipping_subsidy) ELSE GREATEST(0.0, seller_shipping_fee - shipping_subsidy) END + other_fees), 0) AS total_fees,
+                COUNT(CASE WHEN order_status NOT IN ('Trả hàng hoàn tiền', 'RETURNED', 'REFUNDED', 'CANCELLED') AND ABS((gross_amount - seller_discount - commission_fee - service_fee - payment_fee - affiliate_commission_fee - CASE WHEN buyer_shipping_fee > 0 THEN GREATEST(0.0, seller_shipping_fee - buyer_shipping_fee - shipping_subsidy) ELSE (seller_shipping_fee - shipping_subsidy) END - other_fees) - net_settlement) <= 100.0 THEN 1 END) AS balanced_rows,
+                COUNT(CASE WHEN order_status IN ('Trả hàng hoàn tiền', 'RETURNED', 'REFUNDED', 'CANCELLED') OR ABS((gross_amount - seller_discount - commission_fee - service_fee - payment_fee - affiliate_commission_fee - CASE WHEN buyer_shipping_fee > 0 THEN GREATEST(0.0, seller_shipping_fee - buyer_shipping_fee - shipping_subsidy) ELSE (seller_shipping_fee - shipping_subsidy) END - other_fees) - net_settlement) > 100.0 THEN 1 END) AS discrepant_rows
             FROM staging_settlement_records;
         ";
 

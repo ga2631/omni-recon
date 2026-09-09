@@ -145,6 +145,26 @@ export const useStatementsStore = defineStore('statements', () => {
     }
   }
 
+  function downloadSampleTemplate(platform: string = 'SHOPEE') {
+    const csvContent =
+      '\uFEFFMã đơn hàng,Ngày hoàn thành,Trạng thái đơn hàng,Tổng tiền hàng,Phí vận chuyển người mua trả,Trợ giá phí vận chuyển của Shopee,Phí vận chuyển thực tế,Phí thanh toán,Phí cố định,Phí Dịch Vụ,Số tiền chuyển cho Người bán\n' +
+      '260908NORMAL01,2026-09-05 14:00,Hoàn thành,200000,15000,0,15000,8000,8000,10000,174000\n' +
+      '260908SHIPPING,2026-09-06 10:30,Hoàn thành,300000,20000,0,45000,12000,12000,15000,236000\n' +
+      '260908RETURN03,2026-09-07 09:15,Trả hàng hoàn tiền,150000,25000,15000,40000,0,0,0,0\n' +
+      '260908HIDDEN04,2026-09-08 16:45,Hoàn thành,100000,15000,0,15000,4000,4000,5000,70000\n'
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const filename = platform === 'TIKTOK' ? 'mau_bang_ke_tiktok.csv' : 'mau_bang_ke_shopee.csv'
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   function formatVND(val: number | string | undefined): string {
     if (val === undefined || val === null) return '0 ₫'
     const num = typeof val === 'string' ? parseFloat(val) : val
@@ -167,6 +187,8 @@ export const useStatementsStore = defineStore('statements', () => {
     fetchBatches,
     fetchChannels,
     uploadStatement,
+    downloadSampleTemplate,
     formatVND,
   }
 })
+

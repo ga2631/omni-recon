@@ -4,7 +4,7 @@ use crate::handlers::{
     channels::list_channels_handler,
     dashboard::get_dashboard_metrics_handler,
     reconciliation::{list_reconciliation_items_handler, trigger_reconciliation_handler},
-    statements::{list_batches_handler, upload_statement_handler},
+    statements::{download_sample_template_handler, list_batches_handler, upload_statement_handler},
 };
 use crate::ws::ws_handler;
 use axum::{
@@ -30,6 +30,8 @@ pub fn create_router() -> Router {
         // Statements
         .route("/statements/upload", post(upload_statement_handler))
         .route("/statements/batches", get(list_batches_handler))
+        .route("/statements/template", get(download_sample_template_handler))
+        .route("/statements/sample-template", get(download_sample_template_handler))
         // Reconciliation
         .route("/reconciliation/items", get(list_reconciliation_items_handler))
         .route("/reconciliation/run", post(trigger_reconciliation_handler))

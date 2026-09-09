@@ -228,7 +228,7 @@ pub async fn upload_statement_handler(mut multipart: Multipart) -> Response {
         }
     };
 
-    let sample_records = parsed_records.iter().take(5).cloned().collect();
+    let sample_records = parsed_records.iter().take(100).cloned().collect();
 
     (
         StatusCode::OK,
@@ -260,6 +260,30 @@ pub async fn upload_statement_handler(mut multipart: Multipart) -> Response {
         .into_response()
 }
 
+/// Handler to download sample settlement CSV template conforming to platform standards
+pub async fn download_sample_template_handler() -> Response {
+    let template_csv = "\u{FEFF}\
+Mã đơn hàng,Ngày hoàn thành,Trạng thái đơn hàng,Tổng tiền hàng,Phí vận chuyển người mua trả,Trợ giá phí vận chuyển của Shopee,Phí vận chuyển thực tế,Phí thanh toán,Phí cố định,Phí Dịch Vụ,Số tiền chuyển cho Người bán
+260908NORMAL01,2026-09-05 14:00,Hoàn thành,200000,15000,0,15000,8000,8000,10000,174000
+260908SHIPPING,2026-09-06 10:30,Hoàn thành,300000,20000,0,45000,12000,12000,15000,236000
+260908RETURN03,2026-09-07 09:15,Trả hàng hoàn tiền,150000,25000,15000,40000,0,0,0,0
+260908HIDDEN04,2026-09-08 16:45,Hoàn thành,100000,15000,0,15000,4000,4000,5000,70000
+";
+
+    (
+        StatusCode::OK,
+        [
+            (axum::http::header::CONTENT_TYPE, "text/csv; charset=utf-8"),
+            (
+                axum::http::header::CONTENT_DISPOSITION,
+                "attachment; filename=\"mau_bang_ke_shopee.csv\"",
+            ),
+        ],
+        template_csv,
+    )
+        .into_response()
+}
+
 /// Handler to list uploaded statement batches
 pub async fn list_batches_handler() -> Json<serde_json::Value> {
     Json(json!({
@@ -274,7 +298,18 @@ pub async fn list_batches_handler() -> Json<serde_json::Value> {
                 "total_rows": 15420,
                 "status": "COMPLETED",
                 "created_at": "2026-08-31T10:00:00Z"
+            },
+            {
+                "id": "00000000-0000-0000-0000-000000000098",
+                "filename": "mau_bang_ke_shopee.csv",
+                "channel_code": "shopee_official",
+                "platform": "SHOPEE",
+                "report_type": "INCOME_STATEMENT",
+                "total_rows": 4,
+                "status": "COMPLETED",
+                "created_at": "2026-09-08T16:45:00Z"
             }
         ]
     }))
 }
+
