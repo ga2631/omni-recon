@@ -297,6 +297,32 @@ function exportToCSV() {
       </div>
     </div>
 
+    <!-- Quick Stats Cards (when data exists) -->
+    <div v-if="reconStore.items.length > 0" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="glass-panel p-3.5 rounded-xl">
+        <div class="text-[11px] font-medium text-slate-400">Tổng số đơn</div>
+        <div class="text-lg font-bold text-white mt-1">{{ stats.total }} đơn</div>
+      </div>
+      <div class="glass-panel p-3.5 rounded-xl">
+        <div class="text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+          <CheckCircle2 class="w-3.5 h-3.5" />
+          Khớp chuẩn
+        </div>
+        <div class="text-lg font-bold text-emerald-400 mt-1">{{ stats.matched }} đơn</div>
+      </div>
+      <div class="glass-panel p-3.5 rounded-xl">
+        <div class="text-[11px] font-medium text-amber-400 flex items-center gap-1">
+          <AlertTriangle class="w-3.5 h-3.5" />
+          Lệch phí / COD
+        </div>
+        <div class="text-lg font-bold text-amber-400 mt-1">{{ stats.discrepancies }} đơn</div>
+      </div>
+      <div class="glass-panel p-3.5 rounded-xl">
+        <div class="text-[11px] font-medium text-slate-400">Thực nhận về</div>
+        <div class="text-lg font-bold text-brand-400 mt-1">{{ formatVND(stats.totalNet) }}</div>
+      </div>
+    </div>
+
     <!-- Reactive Filter Bar -->
     <FilterBar />
 
