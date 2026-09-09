@@ -4,17 +4,35 @@ use crate::handlers::{
     channels::list_channels_handler,
     dashboard::get_dashboard_metrics_handler,
     reconciliation::{list_reconciliation_items_handler, trigger_reconciliation_handler},
-    statements::{list_batches_handler, upload_statement_handler},
+    statements::{download_sample_template_handler, list_batches_handler, upload_statement_handler},
 };
 use crate::ws::ws_handler;
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
+use omni_common::AppConfig;
+use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+#[derive(Clone, Default)]
+pub struct AppState {
+    pub pool: Option<PgPool>,
+    pub config: AppConfig,
+}
+
 pub fn create_router() -> Router {
+    let config = AppConfig::load_from_env();
+    let state = AppState {
+        pool: None,
+        config,
+    };
+    create_router_with_state(state)
+}
+
+pub fn create_router_with_state(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -29,18 +47,23 @@ pub fn create_router() -> Router {
         // Statements
         .route("/statements/upload", post(upload_statement_handler))
         .route("/statements/batches", get(list_batches_handler))
+        .route("/statements/template", get(download_sample_template_handler))
+        .route("/statements/sample-template", get(download_sample_template_handler))
         // Reconciliation
         .route("/reconciliation/items", get(list_reconciliation_items_handler))
         .route("/reconciliation/run", post(trigger_reconciliation_handler))
         // Alerts
         .route("/alerts", get(list_alerts_handler))
         // Dashboard Metrics
-        .route("/dashboard/metrics", get(get_dashboard_metrics_handler));
+        .route("/dashboard/metrics", get(get_dashboard_metrics_handler))
+        .with_state(state);
 
     Router::new()
         .nest("/api/v1", api_routes)
         .route("/ws", get(ws_handler))
         .route("/healthz", get(|| async { "OK" }))
         .layer(cors)
+        .layer(DefaultBodyLimit::max(250 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
 }
+

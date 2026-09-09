@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import StatCard from '../components/common/StatCard.vue'
 import {
   DollarSign,
@@ -7,23 +7,65 @@ import {
   AlertCircle,
   Truck,
   ArrowUpRight,
-  ShieldAlert
+  ShieldAlert,
+  RefreshCw
 } from 'lucide-vue-next'
+import { apiFetch } from '../utils/api'
+
+const isLoading = ref(false)
 
 const stats = ref({
-  grossRevenue: '1.425.800.000 ₫',
-  netSettled: '1.218.900.000 ₫',
-  totalFees: '206.900.000 ₫',
-  codPending: '85.400.000 ₫',
-  discrepancyTotal: '14.750.000 ₫',
-  discrepancyCount: 48,
+  grossRevenue: '0 ₫',
+  netSettled: '0 ₫',
+  totalFees: '0 ₫',
+  codPending: '0 ₫',
+  discrepancyTotal: '0 ₫',
+  discrepancyCount: 0,
 })
 
-const channels = ref([
-  { name: 'Shopee', revenue: '820.000.000 ₫', fee: '123.000.000 ₫', rate: '15.0%', status: 'Bình thường' },
-  { name: 'TikTok Shop', revenue: '480.000.000 ₫', fee: '67.200.000 ₫', rate: '14.0%', status: 'Bình thường' },
-  { name: 'Lazada', revenue: '125.800.000 ₫', fee: '16.700.000 ₫', rate: '13.2%', status: 'Bình thường' },
-])
+const channels = ref<Array<{ name: string; revenue: string; fee: string; rate: string; status: string }>>([])
+
+function formatVND(amount: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
+}
+
+async function fetchDashboardMetrics() {
+  isLoading.value = true
+  try {
+    const res = await apiFetch('/api/v1/dashboard/metrics')
+    if (res.ok) {
+      const json = await res.json()
+      if (json.data && json.data.summary) {
+        const s = json.data.summary
+        stats.value = {
+          grossRevenue: formatVND(s.gross_revenue),
+          netSettled: formatVND(s.net_settled),
+          totalFees: formatVND(s.total_platform_fees),
+          codPending: formatVND(s.cod_pending),
+          discrepancyTotal: formatVND(s.total_discrepancy_amount),
+          discrepancyCount: s.discrepancy_count,
+        }
+      }
+      if (json.data && json.data.channel_breakdown) {
+        channels.value = json.data.channel_breakdown.map((c: any) => ({
+          name: c.channel,
+          revenue: formatVND(c.revenue),
+          fee: formatVND(c.fees),
+          rate: `${c.fee_rate}%`,
+          status: 'Đang hoạt động',
+        }))
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch dashboard metrics', e)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDashboardMetrics()
+})
 </script>
 
 <template>

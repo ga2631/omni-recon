@@ -1,0 +1,24 @@
+# ==============================================================================
+# Development Dockerfile for OmniRecon Backend (Rust Axum + Cargo Watch)
+# ==============================================================================
+
+FROM rust:bookworm
+
+WORKDIR /usr/src/omni-recon/backend
+
+# Install required build tools, C++ compiler for DuckDB native bindings & cargo-watch
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    clang \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-install cargo-watch for hot-reloading on code changes
+RUN cargo install cargo-watch --locked
+
+EXPOSE 8080
+
+CMD ["cargo", "watch", "-x", "run --bin omni-server"]

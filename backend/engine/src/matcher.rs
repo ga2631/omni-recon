@@ -1,5 +1,5 @@
 use crate::duckdb_runner::DuckDbRunner;
-use omni_common::{OmniError, Result};
+use omni_common::Result;
 use tracing::info;
 
 pub struct ReconciliationMatcher<'a> {

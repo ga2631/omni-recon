@@ -1,36 +1,26 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { DiscrepancyAlertItem } from '../types'
+import { apiFetch } from '../utils/api'
 
 export const useAlertStore = defineStore('alerts', () => {
-  const alerts = ref<DiscrepancyAlertItem[]>([
-    {
-      id: '00000000-0000-0000-0000-000000000071',
-      order_id: '240830TIKTOK77123',
-      channel_code: 'TIKTOK',
-      alert_type: 'COD_MISMATCH',
-      severity: 'CRITICAL',
-      expected_amount: 620000,
-      actual_amount: 600000,
-      discrepancy_amount: -20000,
-      status: 'OPEN',
-      created_at: '2026-08-31T11:00:00Z',
-      notes: 'ĐVVC GHTK thu hộ 600k nhưng giá trị đơn là 620k (lệch 20.000đ)',
-    },
-    {
-      id: '00000000-0000-0000-0000-000000000072',
-      order_id: '240830SHOPEE99182',
-      channel_code: 'SHOPEE',
-      alert_type: 'FEE_MISMATCH',
-      severity: 'HIGH',
-      expected_amount: 165000,
-      actual_amount: 220000,
-      discrepancy_amount: -55000,
-      status: 'OPEN',
-      created_at: '2026-08-31T11:05:00Z',
-      notes: 'Phí sàn trừ 18.3% doanh thu (vượt mức cam kết 13.75%)',
-    },
-  ])
+  const alerts = ref<DiscrepancyAlertItem[]>([])
+  const isLoading = ref(false)
+
+  async function fetchAlerts() {
+    isLoading.value = true
+    try {
+      const res = await apiFetch('/api/v1/alerts')
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data) alerts.value = json.data
+      }
+    } catch (e) {
+      console.error('Failed to fetch alerts', e)
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   function resolveAlert(id: string) {
     const alert = alerts.value.find((a) => a.id === id)
@@ -41,6 +31,9 @@ export const useAlertStore = defineStore('alerts', () => {
 
   return {
     alerts,
+    isLoading,
+    fetchAlerts,
     resolveAlert,
   }
 })
+

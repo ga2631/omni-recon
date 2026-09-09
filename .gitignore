@@ -1,35 +1,58 @@
-# Rust
+# ==============================================================================
+# OmniRecon .gitignore
+# ==============================================================================
+
+# 1. Rust Build Artifacts
 target/
+**/target/
 **/*.rs.bk
 Cargo.lock
+**/Cargo.lock
 
-# Node / Vue
+# 2. Node & Vue Frontend Build Artifacts
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 .vite/
+**/.vite/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# DuckDB / Databases / Temp files
+# 3. Runtime Data, Bronze Storage & Uploads
+data/
+**/data/
+storage/
+**/storage/
+uploads/
+**/uploads/
+tmp/
+**/tmp/
+
+# 4. DuckDB, Parquet & Database Files
 *.duckdb
 *.duckdb.wal
 *.parquet
 *.sqlite
 *.sqlite3
 *.db
-/data/
-/uploads/
-/storage/
 
-# Environment variables
+# 5. Environment & Local Secrets
 .env
 .env.local
 .env.*.local
 !.env.example
+docker-compose.override.yml
 
-# OS & IDEs
+# 6. Logs
+logs/
+**/logs/
+*.log
+
+# 7. OS & IDE Configuration
 .DS_Store
 .DS_Store?
 ._*
@@ -42,8 +65,3 @@ Thumbs.db
 *.swp
 *.swo
 *.code-workspace
-
-# Logs
-logs/
-*.log
-docker-compose.override.yml
