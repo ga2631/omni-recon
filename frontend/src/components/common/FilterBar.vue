@@ -13,7 +13,7 @@ const filterStore = useFilterStore()
       <input
         v-model="filterStore.searchQuery"
         type="text"
-        placeholder="Tìm kiếm theo mã đơn hàng, mã vận đơn..."
+        placeholder="Tìm theo mã đơn, mã vận đơn, tên file nguồn, shop..."
         class="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
       />
     </div>
