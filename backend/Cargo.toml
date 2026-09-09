@@ -28,8 +28,9 @@ dotenvy = "0.15"
 
 # Web & Networking
 axum = { version = "0.7", features = ["multipart", "ws"] }
-tower = "0.4"
+tower = { version = "0.4", features = ["util"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "compression-full"] }
+http-body-util = "0.1"
 jsonwebtoken = "9.3"
 bcrypt = "0.15"
 

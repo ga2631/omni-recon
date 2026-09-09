@@ -1,11 +1,8 @@
 use omni_common::AppConfig;
+use omni_server::create_router;
 use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-mod handlers;
-mod routes;
-mod ws;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::load_from_env();
     info!("Starting OmniRecon Backend API Server on port {}", config.app_port);
 
-    let app = routes::create_router();
+    let app = create_router();
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.app_port));
     info!("🚀 Server listening on http://{}", addr);
