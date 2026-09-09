@@ -28,13 +28,44 @@ export interface ChannelItem {
 export interface ReconciliationRow {
   order_id: string;
   channel_code: string;
+  shop_name?: string;
+  shop_code?: string;
+  source_file?: string;
+  source_report_type?: string;
+  upload_log_id?: string;
+  uploaded_at?: string;
   tracking_code?: string;
+  buyer_username?: string;
+  ordered_at?: string;
+  delivered_at?: string;
+  settled_at?: string;
+  order_status: string;
+  
+  // Standardized Monetary Breakdown
+  gross_amount: number;
+  seller_discount?: number;
+  platform_voucher?: number;
+  buyer_shipping_fee?: number;
+  seller_shipping_fee?: number;
+  shipping_subsidy?: number;
+  commission_fee?: number;
+  service_fee?: number;
+  payment_fee?: number;
+  affiliate_commission_fee?: number;
+  other_fees?: number;
+  total_fee: number;
+  net_settlement: number;
+  
+  // Reconciliation Analysis
   expected_amount: number;
   actual_settlement: number;
-  total_fee: number;
   carrier_cod?: number;
   status: ReconStatus;
   discrepancy: number;
+
+  // Raw JSON Lineage
+  raw_attributes?: Record<string, any>;
+  raw_fee_breakdown?: Record<string, any>;
 }
 
 export interface DiscrepancyAlertItem {

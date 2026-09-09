@@ -296,7 +296,7 @@ pub async fn upload_statement_handler(
         let now_utc = Utc::now();
 
         // 5.1 Insert/Upsert into upload_logs
-        let log_res = sqlx::query(
+        let actual_upload_log_id: Uuid = match sqlx::query_as::<_, (Uuid,)>(
             r#"
             INSERT INTO upload_logs (
                 id, merchant_id, shop_id, platform, report_type,
@@ -315,6 +315,7 @@ pub async fn upload_statement_handler(
                 failed_rows = EXCLUDED.failed_rows,
                 status = EXCLUDED.status,
                 processed_at = EXCLUDED.processed_at
+            RETURNING id
             "#
         )
         .bind(upload_log_id)
@@ -333,12 +334,15 @@ pub async fn upload_statement_handler(
         .bind(serde_json::json!({}))
         .bind(now_utc)
         .bind(Some(now_utc))
-        .execute(pool)
-        .await;
-
-        if let Err(e) = log_res {
-            error!("Failed to persist upload_log: {}", e);
-        }
+        .fetch_one(pool)
+        .await
+        {
+            Ok(row) => row.0,
+            Err(e) => {
+                error!("Failed to persist upload_log: {}", e);
+                upload_log_id
+            }
+        };
 
         // 5.2 Insert/Upsert into unified_orders and unified_transactions
         if let Some(effective_shop_id) = resolved_shop_id {
@@ -374,7 +378,7 @@ pub async fn upload_statement_handler(
                 )
                 .bind(merchant_id)
                 .bind(effective_shop_id)
-                .bind(Some(upload_log_id))
+                .bind(Some(actual_upload_log_id))
                 .bind(&platform)
                 .bind(&rec.order_id)
                 .bind(normalized_status)
@@ -438,7 +442,7 @@ pub async fn upload_statement_handler(
                 .bind(order_uuid)
                 .bind(merchant_id)
                 .bind(effective_shop_id)
-                .bind(upload_log_id)
+                .bind(actual_upload_log_id)
                 .bind(&platform)
                 .bind(&rec.order_id)
                 .bind(&payout_str)
