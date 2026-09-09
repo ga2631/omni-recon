@@ -2,19 +2,22 @@
 # OmniRecon Project Makefile
 # ==============================================================================
 
-.PHONY: help dev dev-down dev-logs prod prod-build prod-down clean
+.PHONY: help dev dev-down dev-logs prod prod-build prod-down clean clean-all reset-db
 
 help:
 	@echo "OmniRecon Command Shortcuts:"
 	@echo "  make dev         - Start development environment with Hot-Reload (Rust + Vue 3)"
 	@echo "  make dev-down    - Stop development environment"
 	@echo "  make dev-logs    - Follow development logs"
+	@echo "  make clean       - Stop containers & clean networks (preserves build cache)"
+	@echo "  make clean-all   - Deep clean (wipes all containers, networks & volumes)"
+	@echo "  make reset-db    - Reset PostgreSQL & Redis development database data"
 	@echo "  make prod        - Start production environment"
 	@echo "  make prod-down   - Stop production environment"
 
 # Development Mode (Hot-Reloading with Vite HMR & Cargo Watch)
 dev:
-	docker compose -f docker-compose.dev.yml up --build
+	docker compose -f docker-compose.dev.yml up
 
 dev-down:
 	docker compose -f docker-compose.dev.yml down
@@ -30,5 +33,14 @@ prod-down:
 	docker compose down
 
 clean:
+	docker compose -f docker-compose.dev.yml down
+	docker compose down
+
+reset-db:
+	docker compose -f docker-compose.dev.yml stop postgres redis
+	docker volume rm -f omni-recon_postgres-dev-data omni-recon_redis-dev-data
+	docker compose -f docker-compose.dev.yml up -d postgres redis
+
+clean-all:
 	docker compose -f docker-compose.dev.yml down -v
 	docker compose down -v

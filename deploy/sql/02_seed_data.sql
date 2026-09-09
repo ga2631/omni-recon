@@ -52,28 +52,3 @@ VALUES
     '{"max_cod_hold_days": 7}'::jsonb
 )
 ON CONFLICT (merchant_id, code) DO NOTHING;
-
--- 4. Create Sample Alert Rules
-INSERT INTO alert_rules (id, merchant_id, rule_code, name, conditions_json, severity, is_enabled, notification_channels)
-VALUES
-(
-    '00000000-0000-0000-0000-000000000020',
-    '00000000-0000-0000-0000-000000000001',
-    'COD_MISMATCH_THRESHOLD',
-    'Cảnh báo Lệch tiền COD trên 10.000đ',
-    '{"threshold_amount": 10000, "compare_operator": "GREATER_THAN"}'::jsonb,
-    'CRITICAL',
-    TRUE,
-    '["IN_APP", "TELEGRAM"]'::jsonb
-),
-(
-    '00000000-0000-0000-0000-000000000021',
-    '00000000-0000-0000-0000-000000000001',
-    'OVERDUE_PAYOUT_THRESHOLD',
-    'Cảnh báo Sàn giữ tiền quá 7 ngày kể từ khi giao thành công',
-    '{"max_hold_days": 7}'::jsonb,
-    'HIGH',
-    TRUE,
-    '["IN_APP"]'::jsonb
-)
-ON CONFLICT DO NOTHING;

@@ -471,7 +471,11 @@ function closeRawModal() {
         </button>
       </div>
 
-      <div class="divide-y divide-slate-800/60">
+      <div v-if="store.batches.length === 0" class="py-8 text-center text-xs text-slate-500 font-medium">
+        Chưa có bảng kê nào được tải lên. Hãy chọn hoặc kéo thả tệp bảng kê phía trên để bắt đầu chuẩn hóa.
+      </div>
+
+      <div v-else class="divide-y divide-slate-800/60">
         <div
           v-for="batch in store.batches"
           :key="batch.id"
@@ -509,6 +513,7 @@ function closeRawModal() {
         </div>
       </div>
     </div>
+
   </div>
 </template>
 

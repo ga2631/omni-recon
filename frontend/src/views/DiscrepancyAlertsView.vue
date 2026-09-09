@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useAlertStore } from '../stores/alerts'
 import StatusBadge from '../components/common/StatusBadge.vue'
-import { AlertTriangle, CheckCircle, ExternalLink, MessageSquare } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle, RefreshCw, ShieldCheck } from 'lucide-vue-next'
 
 const alertStore = useAlertStore()
+
+onMounted(() => {
+  alertStore.fetchAlerts()
+})
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
@@ -18,10 +23,17 @@ function formatVND(amount: number) {
         <h2 class="text-xl font-bold text-white tracking-tight">Trung tâm Cảnh báo Thất thoát Dòng tiền</h2>
         <p class="text-xs text-slate-400 mt-1">Danh sách các đơn hàng có chênh lệch tiền thu hộ COD hoặc phí sàn bất thường</p>
       </div>
+      <button
+        @click="alertStore.fetchAlerts"
+        class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-sm transition-all flex items-center gap-1.5"
+        title="Làm mới"
+      >
+        <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': alertStore.isLoading }" />
+      </button>
     </div>
 
     <!-- Alert Cards List -->
-    <div class="space-y-4">
+    <div v-if="alertStore.alerts.length > 0" class="space-y-4">
       <div
         v-for="alert in alertStore.alerts"
         :key="alert.id"
@@ -62,6 +74,19 @@ function formatVND(amount: number) {
             </span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else class="glass-panel rounded-xl p-12 text-center text-slate-400">
+      <div class="flex flex-col items-center justify-center gap-3">
+        <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <ShieldCheck class="w-6 h-6" />
+        </div>
+        <div class="text-sm font-medium text-slate-200">Không có cảnh báo thất thoát dòng tiền</div>
+        <p class="text-xs text-slate-400 max-w-sm">
+          Tất cả dữ liệu đơn hàng đối soát đều khớp chuẩn hoặc các chênh lệch trước đó đã được giải quyết xong.
+        </p>
       </div>
     </div>
   </div>

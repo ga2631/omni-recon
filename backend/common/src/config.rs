@@ -36,3 +36,10 @@ impl AppConfig {
         }
     }
 }
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self::load_from_env()
+    }
+}
+

@@ -1,30 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { StatementBatchItem, ChannelItem, UploadStatementResult } from '../types'
+import { apiFetch } from '../utils/api'
 
 export const useStatementsStore = defineStore('statements', () => {
-  const batches = ref<StatementBatchItem[]>([
-    {
-      id: '00000000-0000-0000-0000-000000000099',
-      filename: 'Shopee_Income_Statement_August_2026.xlsx',
-      channel_code: 'shopee_official',
-      platform: 'SHOPEE',
-      report_type: 'INCOME_STATEMENT',
-      total_rows: 15420,
-      status: 'COMPLETED',
-      created_at: '2026-08-31T10:00:00Z',
-    },
-    {
-      id: '00000000-0000-0000-0000-000000000098',
-      filename: 'TikTok_Settlement_Report_August_2026.xlsx',
-      channel_code: 'tiktok_shop_main',
-      platform: 'TIKTOK',
-      report_type: 'SETTLEMENT_REPORT',
-      total_rows: 8940,
-      status: 'COMPLETED',
-      created_at: '2026-08-30T15:30:00Z',
-    },
-  ])
+  const batches = ref<StatementBatchItem[]>([])
 
   const channels = ref<ChannelItem[]>([
     {
@@ -58,7 +38,7 @@ export const useStatementsStore = defineStore('statements', () => {
 
   async function fetchBatches() {
     try {
-      const res = await fetch('/api/v1/statements/batches')
+      const res = await apiFetch('/api/v1/statements/batches')
       if (res.ok) {
         const json = await res.json()
         if (json.data) {
@@ -72,7 +52,7 @@ export const useStatementsStore = defineStore('statements', () => {
 
   async function fetchChannels() {
     try {
-      const res = await fetch('/api/v1/channels')
+      const res = await apiFetch('/api/v1/channels')
       if (res.ok) {
         const json = await res.json()
         if (json.data) {
@@ -107,7 +87,7 @@ export const useStatementsStore = defineStore('statements', () => {
 
       uploadProgress.value = 60
 
-      const res = await fetch('/api/v1/statements/upload', {
+      const res = await apiFetch('/api/v1/statements/upload', {
         method: 'POST',
         body: formData,
       })

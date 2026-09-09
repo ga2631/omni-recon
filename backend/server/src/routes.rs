@@ -12,10 +12,27 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use omni_common::AppConfig;
+use sqlx::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+#[derive(Clone, Default)]
+pub struct AppState {
+    pub pool: Option<PgPool>,
+    pub config: AppConfig,
+}
+
 pub fn create_router() -> Router {
+    let config = AppConfig::load_from_env();
+    let state = AppState {
+        pool: None,
+        config,
+    };
+    create_router_with_state(state)
+}
+
+pub fn create_router_with_state(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -38,7 +55,8 @@ pub fn create_router() -> Router {
         // Alerts
         .route("/alerts", get(list_alerts_handler))
         // Dashboard Metrics
-        .route("/dashboard/metrics", get(get_dashboard_metrics_handler));
+        .route("/dashboard/metrics", get(get_dashboard_metrics_handler))
+        .with_state(state);
 
     Router::new()
         .nest("/api/v1", api_routes)
@@ -48,3 +66,4 @@ pub fn create_router() -> Router {
         .layer(DefaultBodyLimit::max(250 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
 }
+

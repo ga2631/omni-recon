@@ -1,7 +1,39 @@
-use axum::Json;
+use crate::AppState;
+use axum::{extract::State, Json};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use uuid::Uuid;
 
-pub async fn list_channels_handler() -> Json<serde_json::Value> {
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ChannelItemDto {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub platform_type: String,
+    pub is_active: bool,
+}
+
+pub async fn list_channels_handler(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    if let Some(ref pool) = state.pool {
+        let rows = sqlx::query_as::<_, ChannelItemDto>(
+            "SELECT id, code, name, platform as platform_type, is_active FROM shops WHERE is_active = true ORDER BY name ASC"
+        )
+        .fetch_all(pool)
+        .await;
+
+        if let Ok(channels) = rows {
+            if !channels.is_empty() {
+                return Json(json!({
+                    "success": true,
+                    "data": channels
+                }));
+            }
+        }
+    }
+
+    // Fallback seed channels if DB is empty or unpopulated
     Json(json!({
         "success": true,
         "data": [
@@ -29,3 +61,4 @@ pub async fn list_channels_handler() -> Json<serde_json::Value> {
         ]
     }))
 }
+

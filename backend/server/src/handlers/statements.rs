@@ -1,5 +1,6 @@
+use crate::AppState;
 use axum::{
-    extract::Multipart,
+    extract::{Multipart, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -45,8 +46,53 @@ pub struct UploadResultData {
     pub sample_records: Vec<StandardSettlementRecord>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BatchListItem {
+    pub id: Uuid,
+    pub filename: String,
+    pub channel_code: Option<String>,
+    pub platform: String,
+    pub report_type: String,
+    pub total_rows: i32,
+    pub status: String,
+    pub created_at: chrono::DateTime<Utc>,
+}
+
+fn normalize_order_status(raw: &str) -> &'static str {
+    let lower = raw.trim().to_lowercase();
+    if lower.contains("trả hàng")
+        || lower.contains("hoàn tiền")
+        || lower.contains("returned")
+        || lower.contains("refund")
+    {
+        "RETURNED"
+    } else if lower.contains("hủy")
+        || lower.contains("cancelled")
+        || lower.contains("canceled")
+    {
+        "CANCELLED"
+    } else if lower.contains("đang giao")
+        || lower.contains("giao hàng")
+        || lower.contains("delivered")
+        || lower.contains("shipping")
+    {
+        "DELIVERED"
+    } else if lower.contains("xử lý")
+        || lower.contains("chờ")
+        || lower.contains("pending")
+        || lower.contains("processing")
+    {
+        "PROCESSING"
+    } else {
+        "COMPLETED"
+    }
+}
+
 /// Handler for multipart statement file upload & Medallion ETL ingestion
-pub async fn upload_statement_handler(mut multipart: Multipart) -> Response {
+pub async fn upload_statement_handler(
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> Response {
     let mut merchant_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let mut shop_id: Option<Uuid> = None;
     let mut platform = "SHOPEE".to_string();
@@ -228,6 +274,200 @@ pub async fn upload_statement_handler(mut multipart: Multipart) -> Response {
         }
     };
 
+    // 5. Persist Silver conformed schema into PostgreSQL (upload_logs, unified_orders, unified_transactions)
+    if let Some(ref pool) = state.pool {
+        let resolved_shop_id = match shop_id {
+            Some(sid) => Some(sid),
+            None => {
+                let row: Option<(Uuid,)> = sqlx::query_as(
+                    "SELECT id FROM shops WHERE merchant_id = $1 AND platform = $2 LIMIT 1",
+                )
+                .bind(merchant_id)
+                .bind(&platform)
+                .fetch_optional(pool)
+                .await
+                .unwrap_or(None);
+                row.map(|r| r.0)
+            }
+        };
+
+        let total_i32 = total_rows as i32;
+        let file_size_i64 = file_size_bytes as i64;
+        let now_utc = Utc::now();
+
+        // 5.1 Insert/Upsert into upload_logs
+        let log_res = sqlx::query(
+            r#"
+            INSERT INTO upload_logs (
+                id, merchant_id, shop_id, platform, report_type,
+                original_filename, file_path, file_hash, file_size_bytes,
+                total_rows, successful_rows, failed_rows, status,
+                error_summary, created_at, processed_at
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9,
+                $10, $11, $12, $13,
+                $14, $15, $16
+            )
+            ON CONFLICT (shop_id, file_hash) DO UPDATE SET
+                total_rows = EXCLUDED.total_rows,
+                successful_rows = EXCLUDED.successful_rows,
+                failed_rows = EXCLUDED.failed_rows,
+                status = EXCLUDED.status,
+                processed_at = EXCLUDED.processed_at
+            "#
+        )
+        .bind(upload_log_id)
+        .bind(merchant_id)
+        .bind(resolved_shop_id)
+        .bind(&platform)
+        .bind(&report_type)
+        .bind(&filename)
+        .bind(bronze_file_path.to_string_lossy().to_string())
+        .bind(&file_hash)
+        .bind(file_size_i64)
+        .bind(total_i32)
+        .bind(total_i32)
+        .bind(0i32)
+        .bind("COMPLETED")
+        .bind(serde_json::json!({}))
+        .bind(now_utc)
+        .bind(Some(now_utc))
+        .execute(pool)
+        .await;
+
+        if let Err(e) = log_res {
+            error!("Failed to persist upload_log: {}", e);
+        }
+
+        // 5.2 Insert/Upsert into unified_orders and unified_transactions
+        if let Some(effective_shop_id) = resolved_shop_id {
+            for rec in &parsed_records {
+                let ordered_at_utc = rec.ordered_at.map(|dt| dt.and_utc());
+                let delivered_at_utc = rec.delivered_at.map(|dt| dt.and_utc());
+                let settled_at_utc = rec.settled_at.map(|dt| dt.and_utc());
+
+                let normalized_status = normalize_order_status(&rec.order_status);
+
+                let order_res = sqlx::query_as::<_, (Uuid,)>(
+                    r#"
+                    INSERT INTO unified_orders (
+                        id, merchant_id, shop_id, upload_log_id, platform,
+                        platform_order_id, order_status, buyer_username, tracking_number,
+                        ordered_at, delivered_at, raw_attributes, created_at, updated_at
+                    ) VALUES (
+                        uuid_generate_v4(), $1, $2, $3, $4,
+                        $5, $6, $7, $8,
+                        $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    )
+                    ON CONFLICT (shop_id, platform_order_id) DO UPDATE SET
+                        upload_log_id = EXCLUDED.upload_log_id,
+                        order_status = EXCLUDED.order_status,
+                        buyer_username = COALESCE(EXCLUDED.buyer_username, unified_orders.buyer_username),
+                        tracking_number = COALESCE(EXCLUDED.tracking_number, unified_orders.tracking_number),
+                        ordered_at = COALESCE(EXCLUDED.ordered_at, unified_orders.ordered_at),
+                        delivered_at = COALESCE(EXCLUDED.delivered_at, unified_orders.delivered_at),
+                        raw_attributes = EXCLUDED.raw_attributes,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING id
+                    "#
+                )
+                .bind(merchant_id)
+                .bind(effective_shop_id)
+                .bind(Some(upload_log_id))
+                .bind(&platform)
+                .bind(&rec.order_id)
+                .bind(normalized_status)
+                .bind(&rec.buyer_username)
+                .bind(&rec.tracking_number)
+                .bind(ordered_at_utc)
+                .bind(delivered_at_utc)
+                .bind(&rec.raw_attributes)
+                .fetch_optional(pool)
+                .await;
+
+                let order_uuid = match order_res {
+                    Ok(Some(row)) => Some(row.0),
+                    Ok(None) => None,
+                    Err(e) => {
+                        error!("Failed to persist unified_order for {}: {}", rec.order_id, e);
+                        None
+                    }
+                };
+
+                let payout_str = rec.payout_id.clone().unwrap_or_else(|| "DEFAULT".to_string());
+
+                let tx_res = sqlx::query(
+                    r#"
+                    INSERT INTO unified_transactions (
+                        id, order_id, merchant_id, shop_id, upload_log_id, platform,
+                        platform_order_id, payout_id, transaction_type,
+                        gross_amount, seller_discount, platform_voucher,
+                        buyer_shipping_fee, seller_shipping_fee, shipping_subsidy,
+                        commission_fee, service_fee, payment_fee,
+                        affiliate_commission_fee, other_fees, net_settlement,
+                        settled_at, raw_fee_breakdown, created_at
+                    ) VALUES (
+                        uuid_generate_v4(), $1, $2, $3, $4, $5,
+                        $6, $7, $8,
+                        $9, $10, $11,
+                        $12, $13, $14,
+                        $15, $16, $17,
+                        $18, $19, $20,
+                        $21, $22, CURRENT_TIMESTAMP
+                    )
+                    ON CONFLICT (shop_id, platform_order_id, payout_id, transaction_type) DO UPDATE SET
+                        order_id = EXCLUDED.order_id,
+                        upload_log_id = EXCLUDED.upload_log_id,
+                        gross_amount = EXCLUDED.gross_amount,
+                        seller_discount = EXCLUDED.seller_discount,
+                        platform_voucher = EXCLUDED.platform_voucher,
+                        buyer_shipping_fee = EXCLUDED.buyer_shipping_fee,
+                        seller_shipping_fee = EXCLUDED.seller_shipping_fee,
+                        shipping_subsidy = EXCLUDED.shipping_subsidy,
+                        commission_fee = EXCLUDED.commission_fee,
+                        service_fee = EXCLUDED.service_fee,
+                        payment_fee = EXCLUDED.payment_fee,
+                        affiliate_commission_fee = EXCLUDED.affiliate_commission_fee,
+                        other_fees = EXCLUDED.other_fees,
+                        net_settlement = EXCLUDED.net_settlement,
+                        settled_at = EXCLUDED.settled_at,
+                        raw_fee_breakdown = EXCLUDED.raw_fee_breakdown
+                    "#
+                )
+                .bind(order_uuid)
+                .bind(merchant_id)
+                .bind(effective_shop_id)
+                .bind(upload_log_id)
+                .bind(&platform)
+                .bind(&rec.order_id)
+                .bind(&payout_str)
+                .bind(&rec.transaction_type)
+                .bind(rec.gross_amount)
+                .bind(rec.seller_discount)
+                .bind(rec.platform_voucher)
+                .bind(rec.buyer_shipping_fee)
+                .bind(rec.seller_shipping_fee)
+                .bind(rec.shipping_subsidy)
+                .bind(rec.commission_fee)
+                .bind(rec.service_fee)
+                .bind(rec.payment_fee)
+                .bind(rec.affiliate_commission_fee)
+                .bind(rec.other_fees)
+                .bind(rec.net_settlement)
+                .bind(settled_at_utc)
+                .bind(&rec.raw_fee_breakdown)
+                .execute(pool)
+                .await;
+
+                if let Err(e) = tx_res {
+                    error!("Failed to persist unified_transaction for order {}: {}", rec.order_id, e);
+                }
+            }
+        }
+    }
+
+
     let sample_records = parsed_records.iter().take(100).cloned().collect();
 
     (
@@ -285,31 +525,42 @@ Mã đơn hàng,Ngày hoàn thành,Trạng thái đơn hàng,Tổng tiền hàng
 }
 
 /// Handler to list uploaded statement batches
-pub async fn list_batches_handler() -> Json<serde_json::Value> {
+pub async fn list_batches_handler(
+    State(state): State<AppState>,
+) -> Json<serde_json::Value> {
+    if let Some(ref pool) = state.pool {
+        let rows = sqlx::query_as::<_, BatchListItem>(
+            r#"
+            SELECT 
+                l.id,
+                l.original_filename as filename,
+                COALESCE(s.code, LOWER(l.platform)) as channel_code,
+                l.platform,
+                l.report_type,
+                l.total_rows,
+                l.status,
+                l.created_at
+            FROM upload_logs l
+            LEFT JOIN shops s ON l.shop_id = s.id
+            ORDER BY l.created_at DESC
+            LIMIT 50
+            "#
+        )
+        .fetch_all(pool)
+        .await;
+
+        if let Ok(batches) = rows {
+            return Json(json!({
+                "success": true,
+                "data": batches
+            }));
+        }
+    }
+
     Json(json!({
         "success": true,
-        "data": [
-            {
-                "id": "00000000-0000-0000-0000-000000000099",
-                "filename": "Shopee_Income_Statement_August_2026.xlsx",
-                "channel_code": "shopee_official",
-                "platform": "SHOPEE",
-                "report_type": "INCOME_STATEMENT",
-                "total_rows": 15420,
-                "status": "COMPLETED",
-                "created_at": "2026-08-31T10:00:00Z"
-            },
-            {
-                "id": "00000000-0000-0000-0000-000000000098",
-                "filename": "mau_bang_ke_shopee.csv",
-                "channel_code": "shopee_official",
-                "platform": "SHOPEE",
-                "report_type": "INCOME_STATEMENT",
-                "total_rows": 4,
-                "status": "COMPLETED",
-                "created_at": "2026-09-08T16:45:00Z"
-            }
-        ]
+        "data": []
     }))
 }
+
 
